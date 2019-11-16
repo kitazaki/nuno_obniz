@@ -1,0 +1,114 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <script src="https://obniz.io/js/jquery-3.2.1.min.js"></script>
+    <script src="https://unpkg.com/obniz@2.4.0/obniz.js" crossorigin="anonymous"></script>
+  </head>
+  <body>
+
+    <h1>obniz nuno</h1>
+    <canvas id="nuno" width="128" height="64"></canvas>
+
+    <script>
+      const MTCH6102_I2CADDR = 0x25;
+      const MTCH6102_MODE = 0x05;
+      const MTCH6102_MODE_STANDBY = 0x00;
+      const MTCH6102_NUMBEROFXCHANNELS = 0x20;
+      const XNUM = 0x0a;
+      const MTCH6102_NUMBEROFYCHANNELS = 0x21;
+      const YNUM = 0x03;
+      const MTCH6102_MODE_FULL = 0x03;
+      const MTCH6102_CMD = 0x04;
+      const MTCH6102_SWIPEHOLDTHRESH = 0x20;
+      const MTCH6102_SENSORVALUE_RX0 = 0x80;
+
+      const canvas = document.getElementById("nuno")
+      const ctx = canvas.getContext('2d'); 
+      let obniz = new Obniz("OBNIZ-ID");
+
+      obniz.onconnect = async function () {
+        let res;
+        let len = 8;
+        let data = [];
+
+        obniz.io0.output(false); // 黒：0番
+        obniz.io1.output(true); // 赤：1番
+        obniz.i2c0.start({mode:'master', sda:2, scl:3, clock:100000, pull:"3v"});
+
+        await obniz.wait(500)
+        obniz.i2c0.write(MTCH6102_I2CADDR, [ MTCH6102_MODE, MTCH6102_MODE_STANDBY ] );
+        obniz.i2c0.write(MTCH6102_I2CADDR, [ MTCH6102_NUMBEROFXCHANNELS, XNUM ] );       
+        obniz.i2c0.write(MTCH6102_I2CADDR, [ MTCH6102_NUMBEROFYCHANNELS, YNUM ] );       
+        obniz.i2c0.write(MTCH6102_I2CADDR, [ MTCH6102_MODE, MTCH6102_MODE_FULL ] );
+        obniz.i2c0.write(MTCH6102_I2CADDR, [ MTCH6102_CMD, MTCH6102_SWIPEHOLDTHRESH ] );
+
+//        obniz.i2c0.write(MTCH6102_I2CADDR, [ 0x05, 0x00 ] );
+//        obniz.i2c0.write(MTCH6102_I2CADDR, [ 0x20, 0x0a ] );       
+//        obniz.i2c0.write(MTCH6102_I2CADDR, [ 0x21, 0x03 ] );       
+//        obniz.i2c0.write(MTCH6102_I2CADDR, [ 0x05, 0x03 ] );       
+//        obniz.i2c0.write(MTCH6102_I2CADDR, [ 0x04, 0x20 ] );       
+
+        await obniz.wait(500)
+        obniz.i2c0.write(MTCH6102_I2CADDR, [ MTCH6102_MODE ] );
+        res = "MODE: ";
+        res += await obniz.i2c0.readWait(MTCH6102_I2CADDR,1);
+        console.log(res);
+        obniz.i2c0.write(MTCH6102_I2CADDR, [ MTCH6102_NUMBEROFXCHANNELS ]);
+        res = "XNUM: ";
+        res += await obniz.i2c0.readWait(MTCH6102_I2CADDR,1);
+        console.log(res);
+        obniz.i2c0.write(MTCH6102_I2CADDR, [ MTCH6102_NUMBEROFYCHANNELS ]);
+        res = "YNUM: ";
+        res += await obniz.i2c0.readWait(MTCH6102_I2CADDR,1);
+        console.log(res);        
+
+        obniz.display.clear();
+
+        obniz.repeat(async function() {
+//          await obniz.wait(50);
+          for (let i = 0; i < len; i++) {
+            obniz.i2c0.write(MTCH6102_I2CADDR, [ MTCH6102_SENSORVALUE_RX0 + i ] );
+            data[i] = await obniz.i2c0.readWait(MTCH6102_I2CADDR,1);
+//          console.log(data[i]);
+          }
+//          console.log(data);
+          
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#aaa";
+          ctx.fillText(data[0]+","+data[1]+","+data[2]+","+data[3], 0, 20);
+          ctx.fillText(data[4]+","+data[5]+","+data[6]+","+data[7], 20, 40);
+          ctx.beginPath();
+          ctx.strokeStyle = '#aaa';
+          ctx.lineWidth = "1";
+          ctx.moveTo(0, 64);
+          ctx.lineTo(16, 64 - ( data[0] / 255 ) * 64 ); // x = 128 / 8 * i, y = 64 - (data[i] / 255) * 64
+          ctx.stroke();
+          ctx.moveTo(16, 64 - ( data[0] / 255 ) * 64 );
+          ctx.lineTo(32, 64 - ( data[1] / 255 ) * 64 );
+          ctx.stroke();
+          ctx.moveTo(32, 64 - ( data[1] / 255 ) * 64 );
+          ctx.lineTo(48, 64 - ( data[2] / 255 ) * 64 );
+          ctx.stroke();
+          ctx.moveTo(48, 64 - ( data[2] / 255 ) * 64 );
+          ctx.lineTo(64, 64 - ( data[3] / 255 ) * 64 );
+          ctx.stroke();
+          ctx.moveTo(64, 64 - ( data[3] / 255 ) * 64 );
+          ctx.lineTo(80, 64 - ( data[4] / 255 ) * 64 );
+          ctx.stroke();
+          ctx.moveTo(80, 64 - ( data[4] / 255 ) * 64 );
+          ctx.lineTo(96, 64 - ( data[5] / 255 ) * 64 );
+          ctx.stroke();
+          ctx.moveTo(96, 64 - ( data[5] / 255 ) * 64 );
+          ctx.lineTo(112, 64 - ( data[6] / 255 ) * 64 );
+          ctx.stroke();
+          ctx.moveTo(112, 64 - ( data[6] / 255 ) * 64 );
+          ctx.lineTo(128, 64 - ( data[7] / 255 ) * 64 );
+          ctx.stroke();
+          obniz.display.draw(ctx);
+        }, 50)
+      }
+    </script>
+  </body>
+</html>
